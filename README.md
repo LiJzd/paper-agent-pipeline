@@ -93,7 +93,7 @@
 
 ```powershell
 # 克隆仓库
-git clone https://github.com/YOUR_USERNAME/paper-agent-pipeline.git
+git clone https://github.com/LiJzd/paper-agent-pipeline.git
 cd paper-agent-pipeline
 
 # 运行安装脚本（Windows PowerShell）
@@ -399,7 +399,7 @@ Paper_Delivery_20260511_主题/
 
 ```bash
 # 克隆仓库
-git clone https://github.com/YOUR_USERNAME/paper-agent-pipeline.git
+git clone https://github.com/LiJzd/paper-agent-pipeline.git
 cd paper-agent-pipeline
 
 # 安装 Python 依赖（用于文献搜索）
