@@ -11,7 +11,7 @@
 ### 1. nature-skills（MIT 许可证）
 
 ```bash
-git clone https://github.com/Yuan1z0825/nature-skills ~/ai-skills/nature-skills
+git clone https://github.com/Yuan1z0825/nature-skills ~/.claude/skills/nature-skills
 ```
 
 安装后将以下命令桥接文件复制到 `~/.claude/commands/`：

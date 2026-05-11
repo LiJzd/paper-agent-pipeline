@@ -120,7 +120,7 @@ Copy-Item commands\nature-*.md ~/.claude/commands/
 
 ```powershell
 # 安装 nature-skills（MIT 许可证）
-git clone https://github.com/Yuan1z0825/nature-skills ~/ai-skills/nature-skills
+git clone https://github.com/Yuan1z0825/nature-skills ~/.claude/skills/nature-skills
 
 # word-document-processor 需要从 Claude Code Skill 市场安装
 # 或手动获取后放到 ~/.claude/skills/word-document-processor/

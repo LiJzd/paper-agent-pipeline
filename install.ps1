@@ -64,7 +64,7 @@ Write-Host ""
 Write-Host "还需要安装外部依赖：" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  1. nature-skills (MIT 许可证):" -ForegroundColor White
-Write-Host "     git clone https://github.com/Yuan1z0825/nature-skills ~/ai-skills/nature-skills" -ForegroundColor Gray
+Write-Host "     git clone https://github.com/Yuan1z0825/nature-skills ~/.claude/skills/nature-skills" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  2. word-document-processor (Anthropic 专有):" -ForegroundColor White
 Write-Host "     通过 Claude Code Skill 市场安装" -ForegroundColor Gray
