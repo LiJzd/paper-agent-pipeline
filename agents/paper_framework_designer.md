@@ -15,8 +15,11 @@ requirements.md            # 需求确认单
 research/
 ├── literature_review.md   # 文献综述
 ├── references.bib         # 引用文件
-└── paper_categories.md    # 文献分类表
+├── paper_categories.md    # 文献分类表
+└── code_analysis.md       # 代码分析报告（基于系统的论文必须读取）
 ```
+
+> ⚠️ 如果存在 code_analysis.md（基于特定系统的论文），必须读取并按系统实际模块划分来组织大纲。
 
 ## 输出
 ```

@@ -34,17 +34,38 @@ polishing_report.md        # 润色报告
 ## 处理流程
 
 ### Step 1: 合并章节
+
+> ⚠️ 文档组装顺序必须严格按以下顺序，不能乱序。目录必须在摘要之后、正文之前。
+
 ```python
 def merge_chapters(chapters_dir):
-    """合并所有章节为一个文档"""
+    """合并所有章节为一个文档，按正确顺序组装"""
 
     merged = Document()
-    chapter_files = sorted(glob(f"{chapters_dir}/chapter_*.docx"))
 
+    # ⚠️ 正确的组装顺序：
+    # 1. 封面页
+    # 2. 中文摘要
+    # 3. 英文摘要
+    # 4. 目录 ← 必须在这里，禁止放到最后
+    # 5. 第1章 ~ 第N章
+    # 6. 参考文献
+    # 7. 致谢
+
+    # 先添加封面和摘要
+    add_cover_page(merged)
+    add_chinese_abstract(merged)
+    add_english_abstract(merged)
+
+    # 添加目录（必须在摘要之后、正文之前）
+    add_toc(merged)
+
+    # 添加各章节
+    chapter_files = sorted(glob(f"{chapters_dir}/chapter_*.docx"))
     for i, ch_file in enumerate(chapter_files):
         ch_doc = Document(ch_file)
 
-        # 复制内容
+        # 复制内容（保留已内联嵌入的图表）
         for element in ch_doc.element.body:
             merged.element.body.append(element)
 

@@ -65,6 +65,7 @@ def final_quality_check(paper_path, requirements_path):
 - [ ] 章节顺序正确
 - [ ] 摘要完整
 - [ ] 关键词完整
+- [ ] ⚠️ 目录在摘要之后、正文之前（不是在文档最后）
 
 **引用检查**
 - [ ] 正文引用 [N] 为独立 run 且 superscript=True（上标生效）
@@ -79,6 +80,7 @@ def final_quality_check(paper_path, requirements_path):
 - [ ] 图片已正确嵌入（doc.part.rels 中有 image part，inline_shapes 数量 == image_parts 数量）
 - [ ] 图表编号格式为 [图X-Y] / [表X-Y]
 - [ ] 图表已插入正文（非仅存放在 figures/ 目录）
+- [ ] ⚠️ 图表位置正确（紧跟引用段落之后，不是堆在文档末尾）
 - [ ] 图注在图下方居中，表注在表上方居中
 - [ ] 图表编号连续，章节内序号无跳号
 - [ ] 图表说明完整
