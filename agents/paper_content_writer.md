@@ -22,13 +22,50 @@ research/
 
 当前章节编号：N
 章节名称：[章节标题]
+
+⚠️ 如果 N > 0（非第一章），还必须读取：
+chapters/chapter_{N-1}_summary.md  # 前一章摘要（核心论点、关键术语、结尾铺垫）
+chapters/chapter_{N-1}.docx        # 前一章正文（检查衔接和避免重复）
 ```
 
 ## 输出（每次调用）
 ```
 chapters/
-└── chapter_{N}.docx       # 章节文档
+├── chapter_{N}.docx       # 章节文档
+└── chapter_{N}_summary.md # 章节摘要（传递给下一章）
 ```
+
+## ⚠️ 章节摘要文件格式（必须生成）
+
+每章写作完成后，必须生成 `chapter_{N}_summary.md`，供下一章智能体参考：
+
+```markdown
+# 第{N}章 章节摘要
+
+## 核心论点（1-2句）
+[本章的主要论点和结论]
+
+## 关键术语
+- 术语1：定义
+- 术语2：定义
+
+## 主要论据（3-5条）
+1. [论据1，含引用编号]
+2. [论据2，含引用编号]
+3. [论据3，含引用编号]
+
+## 结尾铺垫（最后1-2段的核心内容）
+[本章结尾为下一章做了什么铺垫，提出了什么问题]
+
+## 已使用的引用编号
+[列出本章使用的引用编号，避免下一章冲突]
+```
+
+**目的**：解决"全新实例无上下文"导致的逻辑断裂问题。下一章智能体通过读取前章摘要，实现：
+- 论点衔接：知道前章结尾铺垫了什么
+- 避免重复：知道前章已经论述过的内容
+- 术语一致：使用前章定义的关键术语
+- 引用协调：避免引用编号冲突
 
 ## Skill 配置
 
@@ -323,6 +360,46 @@ def self_check(chapter_content, chapter_plan):
     return checks
 ```
 
+### Step 6: 生成章节摘要（⚠️ 必须执行）
+
+> ⚠️ 这是保证论文逻辑连贯的关键步骤。每章完成后必须生成摘要文件，传递给下一章智能体。
+
+```python
+def generate_chapter_summary(chapter_number, chapter_content, chapter_plan):
+    """生成章节摘要，供下一章智能体参考"""
+
+    summary_path = f"chapters/chapter_{chapter_number}_summary.md"
+
+    # 提取关键信息
+    core_argument = extract_core_argument(chapter_content)
+    key_terms = extract_key_terms(chapter_content)
+    main_evidence = extract_main_evidence(chapter_content)
+    ending_transition = extract_ending_transition(chapter_content)
+    used_citations = extract_citation_numbers(chapter_content)
+
+    # 写入摘要文件
+    with open(summary_path, 'w', encoding='utf-8') as f:
+        f.write(f"# 第{chapter_number}章 章节摘要\n\n")
+        f.write(f"## 核心论点\n{core_argument}\n\n")
+        f.write(f"## 关键术语\n")
+        for term, definition in key_terms.items():
+            f.write(f"- {term}：{definition}\n")
+        f.write(f"\n## 主要论据\n")
+        for i, evidence in enumerate(main_evidence, 1):
+            f.write(f"{i}. {evidence}\n")
+        f.write(f"\n## 结尾铺垫\n{ending_transition}\n\n")
+        f.write(f"## 已使用的引用编号\n{used_citations}\n")
+
+    return summary_path
+```
+
+**摘要内容说明**：
+- **核心论点**：1-2句话概括本章的主要结论
+- **关键术语**：本章定义或频繁使用的重要概念
+- **主要论据**：3-5条支撑论点的关键证据（含引用编号）
+- **结尾铺垫**：本章最后一两段的内容，特别是为下一章做的铺垫
+- **已使用的引用编号**：避免下一章重复使用相同编号
+
 ## 输出格式
 
 ### 章节文档结构
@@ -355,6 +432,7 @@ chapter_{N}.docx
 - **语言一致**：严格按照 requirements.md 中的语言撰写
 - **字数控制**：按 chapter_plan 中的字数目标控制
 - **格式规范**：使用 word-document-processor 生成标准学术格式
+- **⚠️ 必须生成章节摘要**：每章完成后必须输出 `chapter_{N}_summary.md`，否则下一章无法衔接
 
 ## 质量检查清单
 - [ ] 章节结构符合大纲

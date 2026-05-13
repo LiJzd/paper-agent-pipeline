@@ -15,13 +15,23 @@ if (-not (Test-Path $CLAUDE_DIR)) {
     New-Item -ItemType Directory -Path $CLAUDE_DIR -Force | Out-Null
 }
 
-# 1. 复制智能体定义
+# 1. 复制智能体定义和脚本
 Write-Host "[1/4] 复制智能体定义到 $CLAUDE_DIR\agents\ ..." -ForegroundColor Green
 if (-not (Test-Path "$CLAUDE_DIR\agents")) {
     New-Item -ItemType Directory -Path "$CLAUDE_DIR\agents" -Force | Out-Null
 }
 Copy-Item "$REPO_DIR\agents\paper_*.md" "$CLAUDE_DIR\agents\" -Force
-Write-Host "  已复制 10 个智能体文件" -ForegroundColor Gray
+$agentCount = (Get-ChildItem "$REPO_DIR\agents\paper_*.md").Count
+Write-Host "  已复制 $agentCount 个智能体文件" -ForegroundColor Gray
+
+# 复制脚本文件
+if (Test-Path "$REPO_DIR\agents\assets") {
+    if (-not (Test-Path "$CLAUDE_DIR\agents\assets\components")) {
+        New-Item -ItemType Directory -Path "$CLAUDE_DIR\agents\assets\components" -Force | Out-Null
+    }
+    Copy-Item "$REPO_DIR\agents\assets\components\*.py" "$CLAUDE_DIR\agents\assets\components\" -Force
+    Write-Host "  已复制脚本文件到 agents\assets\components\" -ForegroundColor Gray
+}
 
 # 2. 复制内置 Skill
 Write-Host "[2/4] 复制 literature-search Skill 到 $CLAUDE_DIR\skills\ ..." -ForegroundColor Green
