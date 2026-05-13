@@ -2,7 +2,7 @@
 
 > 基于 Claude Code 的多智能体学术论文自动写作系统
 
-一个 9 阶段流水线，通过 10 个专业智能体协作，从主题到交付完成一篇完整的学术论文。
+一个 9 阶段流水线，通过 10+ 专业智能体协作，从主题到交付完成一篇完整的学术论文。支持通用学术、计算机、历史学、数学建模四种论文分支。
 
 ## 简介
 
@@ -10,11 +10,14 @@
 
 ### 核心特性
 
-- **9 阶段流水线**：需求分析 → 文献搜索 → 文献综述 → 结构设计 → 逐章写作 → 学术润色 → 审稿回复 → PPT生成 → 终审交付
-- **10 个专业智能体**：每个阶段有独立的智能体定义，无上下文污染
+- **9 阶段流水线**：需求分析 → 文献搜索 → 文献综述 → 结构设计 → 逐章写作（含格式检查） → 学术润色 → 审稿回复 → PPT生成 → 终审交付
+- **4 种论文分支**：通用学术、计算机/软件工程、历史学、数学建模，各自有专用的架构设计师和内容写作智能体
+- **回退机制**：阶段5/4发现上游问题时可自动回退到阶段4/2修正（大纲修正、文献补搜）
+- **人工审核断点**：用户可选择在阶段2、4、5暂停等待审核，支持多选
+- **逐章格式检查**：每章写作完成后自动检查字体、字号、行距、引用格式等
+- **共享工具脚本**：代码逻辑抽取到独立 `.py` 脚本，智能体文档只保留职责说明和调用方式
 - **自动格式规范**：引用上标、页码分节、目录生成、图表编号全部自动处理
 - **多语言支持**：中文 / 英文 / 双语论文
-- **多种论文类型**：实证研究、综述、理论分析
 - **审稿模式**：支持模拟审稿和真实审稿意见回复
 
 ## 架构
@@ -25,36 +28,51 @@
      ▼
 ┌─────────────┐
 │ 阶段1: 需求  │ → requirements.md
-│  分析师      │
+│  分析师      │    确定论文类型 → 选择分支
 └──────┬──────┘
        │
-       ▼
-┌─────────────┐
-│ 阶段2: 文献  │ → research/references_raw.json
-│  搜索        │   research/top_papers.md
-└──────┬──────┘
+       ├──────────────────────────────────────┐
+       │ 通用学术/计算机/历史学分支             │ 数学建模分支
+       ▼                                      ▼
+┌─────────────┐                         ┌─────────────┐
+│ 阶段1.5: 代码│ (可选，仅基于系统的论文)  │ 阶段4: 结构  │ → outline.md
+│  阅读        │                         │  设计(建模)  │
+└──────┬──────┘                         └──────┬──────┘
+       │                                      │
+       ▼                                      ▼
+┌─────────────┐                         ┌─────────────┐
+│ 阶段2: 文献  │ → research/             │ 阶段5: 逐章  │ → chapters/
+│  搜索        │                         │  写作(建模)  │   chapter_N.docx
+└──────┬──────┘                         └──────┬──────┘
+       │                                      │
+       ▼                                      │
+┌─────────────┐                               │
+│ 阶段3: 文献  │ → research/                   │
+│  综述        │   literature_review.md        │
+└──────┬──────┘                               │
+       │                                      │
+       ▼                                      │
+┌─────────────┐                               │
+│ 阶段4: 结构  │ → outline.md                  │
+│  设计        │   chapter_plan.md             │
+└──────┬──────┘                               │
+       │                                      │
+       ▼                                      │
+┌─────────────┐                               │
+│ 阶段5: 逐章  │ → chapters/                   │
+│  写作(每章)  │   chapter_N.docx              │
+└──────┬──────┘                               │
+       │                                      │
+       ▼                                      │
+┌─────────────┐                               │
+│ 阶段5.5: 格式│ → chapters/                   │
+│  检查(每章)  │   chapter_N_format_report.md  │
+└──────┬──────┘                               │
+       │                                      │
+       ▼                                      │
+       ├──────────────────────────────────────┘
        │
        ▼
-┌─────────────┐
-│ 阶段3: 文献  │ → research/literature_review.md
-│  综述        │   research/references.bib
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ 阶段4: 结构  │ → outline.md
-│  设计        │   chapter_plan.md
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐     ┌─────────────┐
-│ 阶段5: 内容  │────→│ 阶段5a: 图表 │
-│  写作(每章)  │     │  生成(每章)  │
-└──────┬──────┘     └──────┬──────┘
-       │                   │
-       │   chapters/       │   figures/
-       │   chapter_N.docx  │   chapter_N/
-       ▼                   ▼
 ┌─────────────┐
 │ 阶段6: 学术  │ → polished_paper.docx
 │  润色        │   polishing_report.md
@@ -78,13 +96,18 @@
 │  交付        │   ├── paper.docx
 └─────────────┘   ├── paper.pdf
                   └── ...
+
+=== 回退通道 ===
+阶段5 → 阶段4：大纲逻辑不通时回退修正大纲
+阶段5 → 阶段2：文献不足时回退补搜文献
+阶段4 → 阶段2：文献综述不足以支撑大纲设计时回退
 ```
 
 ## 前置条件
 
 - **Claude Code** — Anthropic 的 CLI 工具
-- **Python 3.10+** — 用于文献搜索脚本和文档处理
-- **Microsoft Word**（Windows）— 用于域代码更新和 PDF 导出（`win32com`）
+- **Python 3.10+** — 用于文档处理和图表生成
+- **Microsoft Word**（Windows）— 用于域代码更新（`win32com`）
 - **Semantic Scholar API Key**（可选）— 用于文献搜索，免费获取
 
 ## 安装
@@ -106,17 +129,26 @@ cd paper-agent-pipeline
 # 1. 复制智能体定义
 Copy-Item agents\paper_*.md ~/.claude/agents/
 
-# 2. 复制内置 Skill
+# 2. 复制共享工具脚本
+Copy-Item -Recurse agents\assets\components\*.py ~/.claude/agents/assets/components/
+
+# 3. 复制内置 Skill
 Copy-Item -Recurse skills\literature-search ~/.claude/skills/
 
-# 3. 复制命令桥接文件
+# 4. 复制命令桥接文件
 Copy-Item commands\nature-*.md ~/.claude/commands/
 
-# 4. 将 CLAUDE.md 的论文工作流部分追加到 ~/.claude/CLAUDE.md
+# 5. 将 CLAUDE.md 的论文工作流部分追加到 ~/.claude/CLAUDE.md
 # （如果 ~/.claude/CLAUDE.md 已存在，需要手动合并）
 ```
 
-### 安装外部依赖
+### 安装 Python 依赖
+
+```powershell
+pip install python-docx matplotlib numpy seaborn bibtexparser docx2pdf
+```
+
+### 安装外部 Skills
 
 ```powershell
 # 安装 nature-skills（MIT 许可证）
@@ -140,6 +172,8 @@ git clone https://github.com/Yuan1z0825/nature-skills ~/.claude/skills/nature-sk
 
 ### 完整调用示例
 
+#### 通用学术论文
+
 ```
 帮我写一篇论文，主题是：大语言模型在教育中的应用
 - 类型：实证研究
@@ -149,18 +183,39 @@ git clone https://github.com/Yuan1z0825/nature-skills ~/.claude/skills/nature-sk
 - 需要PPT：是
 ```
 
+#### 数学建模论文
+
+```
+帮我写一篇数学建模论文，题目是：短途运输货量预测与车辆调度优化
+- 竞赛类型：全国大学生数学建模竞赛
+- 题目类型：D题
+- 队伍编号：MC2500XXXX
+```
+
+#### 计算机论文
+
+```
+帮我写一篇论文，主题是：基于微服务架构的分布式任务调度系统
+- 类型：毕业设计
+- 语言：中文
+- 基于特定系统：是（系统路径：./my-project）
+```
+
 ### 需求确认
 
 阶段1会询问以下问题：
 
 | 问题 | 选项 | 默认值 |
 |------|------|--------|
-| 论文类型 | 实证研究 / 综述 / 理论分析 | 实证研究 |
+| 学历层次 | 课堂作业 / 专科 / 本科 / 硕士 / 博士 | 本科 |
+| 论文类型 | 实证研究 / 综述 / 理论分析 / 毕业设计 | 实证研究 |
 | 论文语言 | 中文 / 英文 / 双语 | 英文 |
 | 目标期刊 | 用户指定或"不指定" | 不指定 |
 | 是否有真实审稿意见 | 有 / 无 | 无 |
 | 是否需要生成演示PPT | 是 / 否 | 否 |
-| 预期篇幅 | 短文(4-6页) / 标准(8-12页) / 长文(15-20页) | 标准 |
+| 预期篇幅 | 课堂作业 / 专科 / 本科 / 短文 / 标准 / 长文 / 硕士 | 标准 |
+| 是否基于特定系统 | 是 / 否 | 否 |
+| 人工审核断点（多选） | review_literature / review_outline / review_per_chapter / review_draft / 不设 | 不设 |
 
 ## 各阶段详解
 
@@ -168,7 +223,7 @@ git clone https://github.com/Yuan1z0825/nature-skills ~/.claude/skills/nature-sk
 
 **智能体**: `paper_requirement_analyst.md`
 
-解析用户输入，确认论文类型、语言、目标期刊、审稿模式等参数，输出 `requirements.md` 需求确认单。
+解析用户输入，确认论文类型、语言、目标期刊、审稿模式、人工审核断点等参数，输出 `requirements.md` 需求确认单。根据论文类型选择对应分支（通用学术 / 计算机 / 历史学 / 数学建模）。
 
 ### 阶段2: 文献搜索（20分钟）
 
@@ -192,45 +247,52 @@ git clone https://github.com/Yuan1z0825/nature-skills ~/.claude/skills/nature-sk
 
 ### 阶段4: 结构设计（15分钟）
 
-**智能体**: `paper_framework_designer.md`
+根据论文类型调用对应的架构设计师：
 
-根据论文类型设计详细大纲：
-- 实证研究：引言 → 文献综述 → 研究方法 → 结果 → 讨论 → 结论
-- 综述：引言 → 背景 → 主题分析 → 讨论与展望 → 结论
-- 理论分析：引言 → 理论框架 → 分析与论证 → 案例研究 → 讨论 → 结论
-- 输出 `outline.md` 和 `chapter_plan.md`
+| 论文类型 | 智能体 |
+|----------|--------|
+| 通用学术 | `paper_framework_designer.md` |
+| 计算机 | `paper_cs_framework_designer.md` |
+| 历史学 | `paper_history_framework_designer.md` |
+| 数学建模 | `paper_math_modeling_framework_designer.md` |
+
+设计详细大纲，输出 `outline.md` 和 `chapter_plan.md`。
 
 ### 阶段5: 逐章写作（每章10-15分钟）
 
-**智能体**: `paper_content_writer.md` | **Skill**: `word-document-processor`
+根据论文类型调用对应的内容写作智能体：
 
-逐章节撰写学术论文正文，每章生成独立的 `.docx` 文件。关键格式要求：
-- 引用 [N] 必须拆分为独立 run 并设置上标
-- 图片使用 `run.add_picture()` 插入，禁止手动构造 XML
-- 章节标题使用 Heading 1 样式
-- 输出 `chapters/chapter_{N}.docx`
+| 论文类型 | 智能体 |
+|----------|--------|
+| 通用学术 | `paper_content_writer.md` |
+| 计算机 | `paper_cs_content_writer.md` |
+| 历史学 | `paper_history_content_writer.md` |
+| 数学建模 | `paper_math_modeling_content_writer.md` |
 
-### 阶段5a: 图表生成（每章）
+逐章节撰写学术论文正文，每章生成独立的 `.docx` 文件和章节摘要 `_summary.md`。
 
-**智能体**: `paper_figure_agent.md` | **Skill**: `nature-figure` + `nature-data`
+### 阶段5.5: 格式检查（每章）
 
-为每章生成科研图表：
-- ≥300 DPI，PNG 格式
-- 编号格式：[图X-Y] / [表X-Y]
-- 输出 `figures/chapter_{N}/`
+**智能体**: `paper_format_checker.md`
+
+每章写作完成后自动执行格式检查：
+- 字体检查（中文宋体 / 英文 Times New Roman）
+- 字号、行距、页边距检查
+- 图表编号格式检查
+- 引用格式检查（无旧格式残留）
+- 标题样式和分页符检查
+- 输出 `chapters/chapter_{N}_format_report.md`
+- 检查不通过则返修（最多2轮）
 
 ### 阶段6: 学术润色（20分钟）
 
 **智能体**: `paper_polishing.md` | **Skill**: `nature-polishing`
 
 合并所有章节并进行全文润色：
-- 学术语言规范化
-- 格式一致性检查
+- 调用 `merge_docx_chapters.py` 合并章节（保留内联图片）
+- 学术语言规范化（nature-polishing skill）
 - 引用上标修复
-- 标题样式和分页符修复
-- 插入目录（TOC 域代码）
-- 用 Word COM 插入分节符和页码
-- 更新域代码并导出 PDF
+- 调用 `word_com_finalize.py` 插入分节符、页码、更新域代码
 - 输出 `polished_paper.docx` 和 `polishing_report.md`
 
 ### 阶段7: 审稿回复（15分钟）
@@ -257,6 +319,18 @@ git clone https://github.com/Yuan1z0825/nature-skills ~/.claude/skills/nature-sk
 - 页码和目录验证
 - 打包所有文件到 `Paper_Delivery_[日期]_[主题]/`
 
+## 回退机制
+
+论文写作不是严格单向的，阶段5和阶段4会自动检测上游问题并触发回退：
+
+| 触发 | 回退到 | 条件 |
+|------|--------|------|
+| 阶段5 → 阶段4 | 大纲修正 | 大纲某节逻辑不通、论证链条断裂 |
+| 阶段5 → 阶段2 | 文献补搜 | 某论点缺乏文献支撑（<3篇） |
+| 阶段4 → 阶段2 | 文献补搜 | 文献综述不足以支撑章节设计 |
+
+回退后输出 `rollback_feedback.md`，回退目标阶段的智能体读取反馈并修正。版本管理：修正后的文件加 `_v2` 后缀，受影响的章节标记为 `_OBSOLETE`。
+
 ## 输出结构
 
 ```
@@ -282,6 +356,7 @@ Paper_Delivery_20260511_主题/
 ├── outline.md                 # 论文大纲
 ├── chapter_plan.md            # 写作计划
 ├── polished_paper.docx        # 润色后的完整论文
+├── rollback_feedback.md       # 回退反馈（如有）
 ├── research/
 │   ├── references_raw.json    # 原始文献数据
 │   ├── top_papers.md          # 高影响力论文
@@ -289,6 +364,8 @@ Paper_Delivery_20260511_主题/
 │   └── references.bib         # BibTeX 引用文件
 ├── chapters/
 │   ├── chapter_1.docx
+│   ├── chapter_1_summary.md   # 章节摘要（传递给下一章）
+│   ├── chapter_1_format_report.md  # 格式检查报告
 │   ├── chapter_2.docx
 │   └── ...
 ├── figures/
@@ -299,6 +376,41 @@ Paper_Delivery_20260511_主题/
     └── simulated_review.md    # 或 response_to_reviewers.md
 ```
 
+## 智能体角色表
+
+### 通用智能体（所有分支共享）
+
+| 阶段 | 角色 | 配置文件 |
+|------|------|----------|
+| 1 | 需求分析师 | `paper_requirement_analyst.md` |
+| 1.5 | 代码阅读智能体 | `paper_code_reader.md` |
+| 2 | 文献搜索智能体 | `paper_literature_searcher.md` |
+| 3 | 文献综述智能体 | `paper_literature_reviewer.md` |
+| 5.5 | 格式检查智能体 | `paper_format_checker.md` |
+| 6 | 学术润色智能体 | `paper_polishing.md` |
+| 7 | 审稿回复智能体 | `paper_review_response.md` |
+| 8 | PPT生成智能体 | `paper_ppt_generator.md` |
+| 9 | 终审交付智能体 | `paper_delivery.md` |
+
+### 分支专用智能体
+
+| 分支 | 架构设计师（阶段4） | 内容写作（阶段5） |
+|------|---------------------|-------------------|
+| 通用学术 | `paper_framework_designer.md` | `paper_content_writer.md` |
+| 计算机 | `paper_cs_framework_designer.md` | `paper_cs_content_writer.md` |
+| 历史学 | `paper_history_framework_designer.md` | `paper_history_content_writer.md` |
+| 数学建模 | `paper_math_modeling_framework_designer.md` | `paper_math_modeling_content_writer.md` |
+
+### 共享工具脚本
+
+| 脚本 | 用途 |
+|------|------|
+| `paper_docx_utils.py` | Word 文档操作（段落、表格、引用、摘要生成） |
+| `paper_figure_utils.py` | matplotlib 图表生成（分布图、时序图、热力图等） |
+| `paper_delivery_utils.py` | 交付打包（目录创建、PDF生成、参考文献列表） |
+| `merge_docx_chapters.py` | 章节合并（保留内联图片） |
+| `word_com_finalize.py` | Word COM 收尾（分节符、页码、域代码） |
+
 ## 论文类型模板
 
 | 类型 | 章节结构 | 适用场景 |
@@ -306,14 +418,25 @@ Paper_Delivery_20260511_主题/
 | **实证研究** | 引言 → 文献综述 → 研究方法 → 结果 → 讨论 → 结论 | 实验、调查、数据分析 |
 | **综述** | 引言 → 背景 → 主题分析（多章） → 讨论与展望 → 结论 | 文献综述、系统综述 |
 | **理论分析** | 引言 → 理论框架 → 分析与论证 → 案例研究 → 讨论 → 结论 | 理论探讨、框架构建 |
+| **毕业设计（专科）** | 绪论 → 技术介绍 → 需求分析 → 系统设计 → 系统实现 → 测试 → 结论 | 专科毕业论文（5000-8000字） |
+| **毕业设计（本科）** | 绪论 → 相关技术 → 需求分析 → 系统设计 → 系统实现 → 测试 → 结论 | 本科毕业论文（1-2万字） |
+| **计算机系统设计** | 引言 → 相关工作 → 系统设计 → 实现 → 实验 → 讨论 → 结论 | 系统设计类论文 |
+| **计算机算法研究** | 引言 → 相关工作 → 方法 → 实验 → 讨论 → 结论 | 算法/模型研究 |
+| **历史学考证** | 绪论 → 史料概述 → 考证（多章） → 结论 | 史料考证 |
+| **历史学叙事** | 绪论 → 背景 → 叙事（多章） → 影响评价 → 结论 | 历史叙事 |
+| **数学建模** | 问题重述 → 问题分析 → 模型假设 → 符号说明 → 模型建立与求解 → 模型评价 | 数学建模竞赛 |
 
 ## 篇幅模板
 
-| 篇幅 | 页数 | 预计制作时间 | 章节数 |
-|------|------|--------------|--------|
-| 短文 | 4-6页 | 2-3小时 | 4-5章 |
-| 标准 | 8-12页 | 4-6小时 | 6章 |
-| 长文 | 15-20页 | 8-10小时 | 7-8章 |
+| 篇幅 | 页数 | 预计制作时间 |
+|------|------|--------------|
+| 课堂作业 | 3-5页 | 0.5-1小时 |
+| 专科毕业论文 | 10-15页 | 2-3小时 |
+| 本科毕业论文 | 15-30页 | 4-6小时 |
+| 短文 | 4-6页 | 2-3小时 |
+| 标准 | 8-12页 | 4-6小时 |
+| 长文 | 15-20页 | 8-10小时 |
+| 硕士学位论文 | 50-80页 | 10-15小时 |
 
 ## 格式规范
 
@@ -337,8 +460,8 @@ Paper_Delivery_20260511_主题/
 - **封面**：无页码
 - **摘要/目录**：罗马数字页码（i, ii, iii...）
 - **正文**：阿拉伯数字页码（1, 2, 3...），从1开始
-- **分节符**：必须用 Word COM 的 `InsertBreak(wdSectionBreakNextPage)` 插入（python-docx 的分节符在 Word 中会丢失）
-- **域代码**：页码和目录是域代码，必须用 `win32com` 调用 Word 更新后才能渲染
+- **分节符**：用 Word COM 的 `InsertBreak(wdSectionNextPage)` 插入（封装在 `word_com_finalize.py`）
+- **域代码**：用 `win32com` 调用 Word 更新后才能渲染（封装在 `word_com_finalize.py`）
 
 ### 标题和分页
 
@@ -366,7 +489,7 @@ Paper_Delivery_20260511_主题/
 ### 4. 页码和目录不显示
 
 **问题**：python-docx 的域代码在 Word 中不会自动渲染。
-**解决**：用 `win32com` 调用 Word 更新所有域代码后导出 PDF。
+**解决**：用 `win32com` 调用 Word 更新所有域代码。
 
 ### 5. 中文路径导致 COM 失败
 
@@ -391,6 +514,21 @@ Paper_Delivery_20260511_主题/
 | word-document-processor | Anthropic 专有 | Word 文档创建和编辑 | Claude Code Skill 市场 |
 | [Semantic Scholar API](https://www.semanticscholar.org/product/api) | 免费 | 文献搜索 | 获取 API Key |
 
+### Python 依赖
+
+```powershell
+pip install python-docx matplotlib numpy seaborn bibtexparser docx2pdf
+```
+
+| 包 | 用途 |
+|----|------|
+| python-docx | Word 文档创建和编辑 |
+| matplotlib | 图表生成 |
+| numpy | 数值计算 |
+| seaborn | 统计图表美化 |
+| bibtexparser | BibTeX 解析 |
+| docx2pdf | PDF 导出（可选，需要 Word） |
+
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
@@ -402,11 +540,8 @@ Paper_Delivery_20260511_主题/
 git clone https://github.com/LiJzd/paper-agent-pipeline.git
 cd paper-agent-pipeline
 
-# 安装 Python 依赖（用于文献搜索）
-pip install requests
-
-# 安装 python-docx（用于文档处理）
-pip install python-docx
+# 安装 Python 依赖
+pip install python-docx matplotlib numpy seaborn bibtexparser docx2pdf requests
 ```
 
 ### 贡献指南
