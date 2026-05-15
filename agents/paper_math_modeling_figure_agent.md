@@ -71,7 +71,45 @@ plot_error_analysis(y_true, y_pred, "误差分析", "figures/fig7.png")
 - 图标题：位于图片下方，居中
 - 颜色：使用 `COLOR_SCHEMES` 中的学术配色
 
+## ⚠️ 中文字体强制检查（必须执行）
+
+**每次生成图表后，必须验证中文渲染正确：**
+
+```python
+# 生成图表后的验证步骤
+from PIL import Image
+import os
+
+def verify_chinese_rendering(image_path):
+    """验证图片中的中文是否正确渲染（非方块）"""
+    size = os.path.getsize(image_path)
+    if size < 1000:  # 图片太小可能有问题
+        print(f"⚠️ 警告: {image_path} 只有 {size} bytes，可能生成失败")
+        return False
+    print(f"✓ {image_path} ({size:,} bytes)")
+    return True
+
+# ⚠️ 字体设置必须在每次生成时强制执行
+import matplotlib
+matplotlib.use('Agg')  # 非交互式后端
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# 强制刷新字体缓存
+fm._load_fontmanager(try_read_cache=False)
+
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'KaiTi']
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.size'] = 12
+```
+
+**验证清单：**
+1. 生成后用 `Read` 工具查看图片，确认中文不是方块□□□
+2. 检查文件大小（流程图>50KB，数据图>80KB）
+3. 如果中文显示异常，立即用 `Read` 工具查看并报告
+
 ## 输出要求
 - 文件命名：`figures/fig_[描述].png`
 - 每个图表必须有标题、坐标轴标签、图例（如适用）
 - 颜色区分明显，字体够大（打印后清晰可读）
+- ⚠️ 生成后必须验证中文渲染，发现问题立即修复

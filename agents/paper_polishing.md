@@ -36,32 +36,52 @@ polishing_report.md        # 润色报告
 
 ### Step 1: 合并章节
 
-调用已有的合并脚本，不要自己写合并代码：
+调用已有的合并脚本，不要自己写合并代码。
+
+⚠️ **合并方式选择**（必须判断）：
+- **数学建模论文**（含 OMML 公式）：必须使用 `merge_chapters_with_com()`（Word COM 方式）
+- **其他论文**（无 OMML 公式，≤2 章节含图片）：可使用 `merge_chapters()`（zipfile 方式）
+- **其他论文**（无 OMML 公式，3+ 章节含图片）：建议使用 `merge_chapters_with_com()`
+
+判断依据：读取 requirements.md，如果论文类型为"数学建模"，或 chapters/ 中的 docx 含 OMML 公式（`m:oMath` 标签），则使用 Word COM 方式。
 
 ```python
-import sys, os
+import sys, os, re, glob
 sys.path.insert(0, os.path.expanduser('~/.claude/agents/assets/components'))
-from merge_docx_chapters import merge_chapters, verify_merged_docx
+from merge_docx_chapters import merge_chapters, merge_chapters_with_com, verify_merged_docx
 
 # 按数字排序（禁止字符串排序，否则 chapter_10 排在 chapter_2 前面）
-import re, glob
 chapter_files = sorted(
     glob.glob('chapters/chapter_*.docx'),
     key=lambda f: int(re.search(r'chapter_(\d+)', f).group(1))
 )
 
-# 合并（自动处理图片重命名、关系迁移、Content_Types 修复）
-merge_chapters(chapter_files, 'merged_paper.docx', base_dir='.')
+# 判断是否为数学建模论文（含 OMML 公式）
+is_math_modeling = False
+if os.path.exists('requirements.md'):
+    with open('requirements.md', 'r', encoding='utf-8') as f:
+        if '数学建模' in f.read():
+            is_math_modeling = True
 
-# 验证图片嵌入成功
-verify_merged_docx('merged_paper.docx')
+if is_math_modeling:
+    # 数学建模论文：必须使用 Word COM 合并（保护 OMML 公式不被损坏）
+    print("检测到数学建模论文，使用 Word COM 方式合并...")
+    merge_chapters_with_com(chapter_files, 'merged_paper.docx')
+else:
+    # 其他论文：使用 zipfile 方式合并
+    merge_chapters(chapter_files, 'merged_paper.docx', base_dir='.')
+    verify_merged_docx('merged_paper.docx')
 ```
 
+⚠️ **为什么数学建模论文必须用 Word COM？**
+- python-docx 加载/保存会损坏 OMML 公式（round-trip 改变 namespace 声明和元素结构）
+- zipfile 方式合并 3+ 章节含图片时 image rels 可能损坏
+- Word COM 的 `InsertFile` 原生处理所有 XML 合并、图片嵌入、关系映射
+
 ⚠️ 合并脚本已在 `~/.claude/agents/assets/components/merge_docx_chapters.py` 中实现，包含：
-- 图片重命名为唯一名称（ch{N}_image{M}.png）
-- rId 映射和更新
-- Content_Types.xml 修复
-- 合并后验证（图片唯一性、关系完整性）
+- `merge_chapters()`: zipfile 方式（图片重命名、rId 映射、Content_Types 修复）
+- `merge_chapters_with_com()`: Word COM 方式（推荐用于数学建模论文）
+- `verify_merged_docx()`: 合并后验证（图片唯一性、关系完整性）
 
 ### Step 2: 学术润色
 
@@ -238,9 +258,74 @@ result = finalize_docx('polished_paper.docx')
 - **语言匹配**：严格按照 requirements.md 的语言润色
 - **不处理格式**：字体、字号、行距、页边距等格式问题已由阶段5的格式检查智能体处理
 
+## ⚠️ 图片完整性验证（必须执行）
+
+**合并章节后，必须验证所有图片：**
+
+```python
+import zipfile
+from docx import Document
+
+def verify_images_in_docx(docx_path):
+    """验证DOCX中的图片完整性"""
+    doc = Document(docx_path)
+    print(f"段落: {len(doc.paragraphs)}")
+    print(f"内联图片: {len(doc.inline_shapes)}")
+    print(f"表格: {len(doc.tables)}")
+
+    # 检查ZIP中的图片文件
+    with zipfile.ZipFile(docx_path, 'r') as z:
+        media_files = [f for f in z.namelist() if f.startswith('word/media/')]
+        print(f"ZIP中图片: {len(media_files)}")
+
+        # 检查每张图片大小
+        for mf in media_files:
+            data = z.read(mf)
+            if len(data) < 1000:
+                print(f"⚠️ 警告: {mf} 只有 {len(data)} bytes，可能损坏")
+
+    # 验证图片关系完整性
+    rels = doc.part.rels
+    image_rels = [r for r in rels.values() if 'image' in str(r.reltype)]
+    print(f"图片关系: {len(image_rels)}")
+
+    return len(media_files) == len(doc.inline_shapes)
+```
+
+**⚠️ 如果发现图片数量不匹配或图片损坏：**
+1. 使用 `Read` 工具查看问题图片
+2. 如果中文显示为方块，重新生成图表（使用 `fix_broken_figures.py` 模式）
+3. 使用ZIP操作替换损坏的图片
+
+## ⚠️ 图片替换脚本（如需要）
+
+```python
+import zipfile, shutil
+
+def replace_images_in_docx(docx_path, replace_map):
+    """替换DOCX中的图片
+    replace_map: {'image1.png': 'figures/fig1_fixed.png', ...}
+    """
+    temp = docx_path + '.tmp'
+    with zipfile.ZipFile(docx_path, 'r') as zin:
+        with zipfile.ZipFile(temp, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if item.filename.startswith('word/media/'):
+                    fname = item.filename.split('/')[-1]
+                    if fname in replace_map and os.path.exists(replace_map[fname]):
+                        with open(replace_map[fname], 'rb') as f:
+                            data = f.read()
+                        print(f"替换: {item.filename}")
+                zout.writestr(item, data)
+    shutil.move(temp, docx_path)
+```
+
 ## 质量检查清单
 - [ ] 所有章节已合并（调用 merge_docx_chapters.py）
 - [ ] 图片已正确嵌入（verify_merged_docx 通过）
+- [ ] ⚠️ 图片数量验证：ZIP中图片数 = inline_shapes数
+- [ ] ⚠️ 图片中文渲染：用Read工具抽查确认无方块□□□
 - [ ] 语法错误已修正
 - [ ] 拼写错误已修正
 - [ ] 学术用词规范

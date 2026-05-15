@@ -62,8 +62,11 @@ from paper_docx_utils import load_numbered_references
 
 #### 图表检查
 - [ ] 图片已正确嵌入（inline_shapes > 0）
+- [ ] ⚠️ 图片数量验证：ZIP中图片数 = inline_shapes数（必须一致）
+- [ ] ⚠️ 图片中文渲染：用Read工具抽查至少3张图片，确认无方块□□□
 - [ ] 图表编号格式为 [图X-Y] / [表X-Y]
 - [ ] 图表位置正确（紧跟引用段落之后）
+- [ ] ⚠️ 图片环绕方式：大图应使用上下型或四周型，避免被文字覆盖
 
 #### 格式检查
 - [ ] 章节标题为 Heading 1
